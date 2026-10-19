@@ -1,5 +1,5 @@
 /*
- * Roxy – Spicetify theme, TUI style
+ * frameshell – Spicetify theme, TUI style
  * Same look as the Vencord theme (system24) and the terminal: monospace,
  * square corners, panels drawn as 1px frames with a label in the top line
  * (lib, home, queue, player). Colors come from color.ini (--spice-*).
@@ -12,20 +12,20 @@
 /* ── Base values ────────────────────────────────────────────── */
 
 :root {
-  --roxy-font: "JetBrains Mono", monospace;
-  --roxy-frame: var(--spice-highlight);
-  --roxy-label: var(--spice-button);
+  --fs-font: "JetBrains Mono", monospace;
+  --fs-frame: var(--spice-highlight);
+  --fs-label: var(--spice-button);
 
-  --encore-body-font-stack: var(--roxy-font);
-  --encore-title-font-stack: var(--roxy-font);
-  --encore-variable-font-stack: var(--roxy-font);
+  --encore-body-font-stack: var(--fs-font);
+  --encore-title-font-stack: var(--fs-font);
+  --encore-variable-font-stack: var(--fs-font);
 }
 
 body,
 input,
 button,
 .encore-text {
-  font-family: var(--roxy-font) !important;
+  font-family: var(--fs-font) !important;
   letter-spacing: -0.02ch;
 }
 
@@ -37,7 +37,7 @@ button,
   box-shadow: none !important;
 }
 
-/* Map Spotify's own color variables (encore) to the Periwinkle palette so
+/* Map Spotify's own color variables (encore) to the theme colors (color.ini) so
    places without --spice-* match too (green → blue etc.). */
 :root,
 .encore-dark-theme,
@@ -87,7 +87,7 @@ button,
 .Root__now-playing-bar {
   position: relative;
   overflow: visible !important;
-  border: 1px solid var(--roxy-frame) !important;
+  border: 1px solid var(--fs-frame) !important;
   background-color: var(--spice-main) !important;
 }
 
@@ -101,10 +101,10 @@ button,
   left: 10px;
   z-index: 10;
   padding: 0 6px;
-  font-family: var(--roxy-font);
+  font-family: var(--fs-font);
   font-size: 11px;
   line-height: 1.5;
-  color: var(--roxy-label);
+  color: var(--fs-label);
   background-color: var(--spice-sidebar);
   pointer-events: none;
 }
@@ -138,7 +138,7 @@ button,
 
 .Root__globalNav input {
   background-color: var(--spice-main) !important;
-  border: 1px solid var(--roxy-frame) !important;
+  border: 1px solid var(--fs-frame) !important;
 }
 
 .Root__globalNav input:focus {
@@ -198,7 +198,7 @@ button,
 .Root__main-view [role="checkbox"],
 .Root__nav-bar [role="checkbox"] {
   background-color: transparent !important;
-  border: 1px solid var(--roxy-frame) !important;
+  border: 1px solid var(--fs-frame) !important;
 }
 
 .Root__main-view [role="checkbox"][aria-checked="true"],
@@ -212,7 +212,7 @@ button,
 .main-trackList-trackListHeaderRow {
   text-transform: lowercase;
   color: var(--spice-misc) !important;
-  border-bottom: 1px solid var(--roxy-frame) !important;
+  border-bottom: 1px solid var(--fs-frame) !important;
 }
 
 .main-trackList-trackListRow:hover {
@@ -273,7 +273,7 @@ button,
 [role="dialog"],
 .main-contextMenu-menu {
   background-color: var(--spice-main) !important;
-  border: 1px solid var(--roxy-frame) !important;
+  border: 1px solid var(--fs-frame) !important;
 }
 
 [role="menuitem"]:hover,
