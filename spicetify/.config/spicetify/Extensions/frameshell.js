@@ -51,10 +51,40 @@
         return (artists ?? []).map(a => a?.profile?.name ?? a?.name).filter(Boolean).join(", ");
     }
 
+    // One entity of the internal search, whatever list it came from
+    function fromEntity(kind, t) {
+        if (!t?.uri) return null;
+        switch (kind) {
+        case "track":
+            return item("track", t.uri, t.name, `${names(t.artists?.items)} · ${t.albumOfTrack?.name ?? ""}`,
+                pickImage(t.albumOfTrack?.coverArt?.sources), Math.round((t.duration?.totalMilliseconds ?? 0) / 1000));
+        case "artist":
+            return item("artist", t.uri, t.profile?.name ?? t.name, "artist", pickImage(t.visuals?.avatarImage?.sources));
+        case "album":
+            return item("album", t.uri, t.name, `album · ${names(t.artists?.items)}`, pickImage(t.coverArt?.sources));
+        case "playlist":
+            return item("playlist", t.uri, t.name, `playlist · ${t.ownerV2?.data?.name ?? t.owner?.name ?? ""}`,
+                pickImage(t.images?.items?.[0]?.sources));
+        default:
+            return null;
+        }
+    }
+
     // Internal search response (searchV2), parsed loosely because the shape moves around
     function fromGraphQL(data) {
         const s = data?.data?.searchV2 ?? data?.searchV2 ?? {};
         const out = [];
+        // The quick search (searchModalResults) answers with one mixed list of top results,
+        // each entry wrapped with its type name
+        for (const wrapper of s.topResultsV2?.itemsV2 ?? s.topResults?.itemsV2 ?? s.topResults?.items ?? []) {
+            const inner = wrapper?.item ?? wrapper;
+            const t = inner?.data ?? inner;
+            const typename = String(t?.__typename ?? inner?.__typename ?? wrapper?.__typename ?? t?.uri?.split(":")[1] ?? "").toLowerCase();
+            const kind = typename.includes("track") ? "track" : typename.includes("artist") ? "artist"
+                : typename.includes("album") ? "album" : typename.includes("playlist") ? "playlist" : "";
+            const entry = fromEntity(kind, t);
+            if (entry) out.push(entry);
+        }
         for (const wrapper of s.tracksV2?.items ?? s.tracks?.items ?? []) {
             const t = wrapper?.item?.data ?? wrapper?.data ?? wrapper;
             if (!t?.uri) continue;
@@ -109,28 +139,47 @@
         }
     }
 
+    // A short description of a response for the shell's log, when nothing was found
+    function shape(data, depth = 0) {
+        if (data === null || typeof data !== "object") return typeof data === "string" ? `"${data.slice(0, 40)}"` : String(data);
+        if (Array.isArray(data)) return `[${data.length}${data.length && depth < 3 ? ":" + shape(data[0], depth + 1) : ""}]`;
+        const keys = Object.keys(data);
+        if (depth >= 3) return `{${keys.slice(0, 6).join(",")}}`;
+        return "{" + keys.slice(0, 8).map(k => `${k}:${shape(data[k], depth + 1)}`).join(",") + "}";
+    }
+
     async function search(query) {
         const own = await libraryPlaylists(query);
         const defs = Spicetify.GraphQL.Definitions ?? {};
-        // The client's quick search first, then the full search page, then the Web API
+        const debug = { defs: Object.keys(defs).filter(n => /search/i.test(n)).slice(0, 12), tried: {} };
+        // The client's quick search first, then the full search page, then the Web API.
+        // The queries want every variable they know; a missing one is an error, so the
+        // full set goes along (unknown extras are ignored).
+        const variables = {
+            searchTerm: query, offset: 0, limit: LIMIT, numberOfTopResults: LIMIT * 2,
+            includeAudiobooks: true, includeArtistHasConcertsField: false, includePreReleases: true,
+            includeAuthors: false, includeMusicVideos: false, includeNotMusic: false
+        };
         for (const name of ["searchModalResults", "searchDesktop"]) {
             if (!defs[name]) continue;
             try {
-                const data = await Spicetify.GraphQL.Request(defs[name], {
-                    searchTerm: query, offset: 0, limit: LIMIT, numberOfTopResults: 5,
-                    includeAudiobooks: false, includePreReleases: false
-                });
+                const data = await Spicetify.GraphQL.Request(defs[name], variables);
                 const found = fromGraphQL(data);
                 if (found.length) return { source: name, items: own.concat(found) };
+                const first = data?.data?.searchV2?.topResultsV2?.itemsV2?.[0];
+                debug.tried[name] = shape(data) + (first ? " first=" + JSON.stringify(first).slice(0, 400) : "");
             } catch (e) {
                 log(name, e);
+                debug.tried[name] = `error ${e?.message || shape(e)}`;
             }
         }
         const web = await Spicetify.CosmosAsync.get(
             `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track,artist,album,playlist&limit=${LIMIT}`);
         // CosmosAsync returns errors (429, 403) as objects instead of throwing
         if (web?.error) throw new Error(web.error.message ?? `web api ${web.error.status}`);
-        return { source: "web api", items: own.concat(fromWebApi(web)) };
+        const items = own.concat(fromWebApi(web));
+        if (items.length === 0) debug.tried.web = shape(web);
+        return { source: "web api", items, debug: items.length === 0 ? debug : undefined };
     }
 
     // ── Playback ─────────────────────────────────────────────
