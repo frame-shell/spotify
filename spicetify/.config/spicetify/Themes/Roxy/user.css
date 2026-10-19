@@ -1,8 +1,8 @@
 /*
- * Roxy – Spicetify theme
- * Colors come from color.ini (--spice-*). Layout follows a desktop music
- * player: borderless tiles, icon rail on the left, queue as a table on
- * the right, floating player bar at the bottom.
+ * Roxy – Spicetify theme, TUI style
+ * Same look as the Vencord theme (system24) and the terminal: monospace,
+ * square corners, panels drawn as 1px frames with a label in the top line
+ * (lib, home, queue, player). Colors come from color.ini (--spice-*).
  *
  * Selectors: Spotify renames its classes regularly. If something stops
  * working after an update, run `spicetify enable-devtools`, press
@@ -12,10 +12,9 @@
 /* ── Base values ────────────────────────────────────────────── */
 
 :root {
-  --roxy-font: "Lexend", "Outfit", "Inter", system-ui, sans-serif;
-  --roxy-radius: 16px;
-  --roxy-radius-sm: 10px;
-  --roxy-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --roxy-font: "JetBrains Mono", monospace;
+  --roxy-frame: var(--spice-highlight);
+  --roxy-label: var(--spice-button);
 
   --encore-body-font-stack: var(--roxy-font);
   --encore-title-font-stack: var(--roxy-font);
@@ -27,6 +26,15 @@ input,
 button,
 .encore-text {
   font-family: var(--roxy-font) !important;
+  letter-spacing: -0.02ch;
+}
+
+/* No rounded corners and no soft shadows anywhere */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 /* Map Spotify's own color variables (encore) to the Roxy palette so
@@ -38,10 +46,10 @@ button,
   --background-highlight: var(--spice-highlight);
   --background-press: var(--spice-main-elevated);
   --background-elevated-base: var(--spice-main-elevated);
-  --background-elevated-highlight: var(--spice-highlight-elevated);
+  --background-elevated-highlight: var(--spice-highlight);
   --background-elevated-press: var(--spice-main-elevated);
-  --background-tinted-base: rgba(var(--spice-rgb-text), 0.07);
-  --background-tinted-highlight: rgba(var(--spice-rgb-text), 0.11);
+  --background-tinted-base: rgba(var(--spice-rgb-text), 0.06);
+  --background-tinted-highlight: rgba(var(--spice-rgb-text), 0.1);
   --background-tinted-press: rgba(var(--spice-rgb-text), 0.04);
   --text-base: var(--spice-text);
   --text-subdued: var(--spice-subtext);
@@ -56,7 +64,7 @@ button,
   --decorative-subdued: var(--spice-highlight);
 }
 
-/* Green accent buttons (play on albums, follow …) */
+/* Accent buttons (play on albums, follow …): flat blue blocks */
 .encore-bright-accent-set,
 .encore-dark-theme .encore-bright-accent-set {
   --background-base: var(--spice-button);
@@ -66,10 +74,10 @@ button,
   --essential-base: var(--spice-sidebar);
 }
 
-/* ── Frame and panels ───────────────────────────────────────── */
+/* ── Frames with labels ─────────────────────────────────────── */
 
 .Root__top-container {
-  --panel-gap: 10px;
+  --panel-gap: 12px;
   background-color: var(--spice-sidebar) !important;
 }
 
@@ -77,97 +85,134 @@ button,
 .Root__main-view,
 .Root__right-sidebar,
 .Root__now-playing-bar {
-  border-radius: var(--roxy-radius) !important;
-  overflow: hidden;
-}
-
-.Root__main-view,
-.Root__nav-bar,
-.Root__right-sidebar {
+  position: relative;
+  overflow: visible !important;
+  border: 1px solid var(--roxy-frame) !important;
   background-color: var(--spice-main) !important;
 }
 
-/* Top bar (home, search) without its own background */
+/* The label sits on the top border line, like ┌─ home ─── */
+.Root__nav-bar::before,
+.Root__main-view::before,
+.Root__right-sidebar::before,
+.Root__now-playing-bar::before {
+  position: absolute;
+  top: -0.75em;
+  left: 10px;
+  z-index: 10;
+  padding: 0 6px;
+  font-family: var(--roxy-font);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--roxy-label);
+  background-color: var(--spice-sidebar);
+  pointer-events: none;
+}
+
+.Root__nav-bar::before { content: "lib"; left: 4px; padding: 0 3px; }
+.Root__main-view::before { content: "home"; }
+.Root__right-sidebar::before { content: "queue"; }
+.Root__now-playing-bar::before { content: "player"; }
+
+/* Frames light up when the mouse is inside, as in system24 */
+.Root__nav-bar:hover,
+.Root__main-view:hover,
+.Root__right-sidebar:hover,
+.Root__now-playing-bar:hover {
+  border-color: var(--spice-button) !important;
+  transition: border-color 0.2s ease;
+}
+
+/* Inner backgrounds would cover the frame color */
+.Root__main-view > div,
+.Root__right-sidebar > div,
+.main-view-container,
+.main-yourLibraryX-library {
+  background-color: transparent !important;
+}
+
+/* Top bar (home, search) */
 .Root__globalNav {
   background-color: transparent !important;
 }
 
 .Root__globalNav input {
-  border-radius: 999px !important;
   background-color: var(--spice-main) !important;
+  border: 1px solid var(--roxy-frame) !important;
+}
+
+.Root__globalNav input:focus {
+  border-color: var(--spice-button) !important;
 }
 
 /* ── Left rail (library) ────────────────────────────────────── */
 /* Works best collapsed ("Collapse Your Library") as a narrow icon rail. */
-
-.main-yourLibraryX-listItem,
-.main-yourLibraryX-listItem > div {
-  border-radius: var(--roxy-radius-sm) !important;
-}
 
 .main-yourLibraryX-listItem:hover > div {
   background-color: var(--spice-highlight) !important;
 }
 
 .main-yourLibraryX-listItem[aria-selected="true"] > div {
-  background-color: rgba(var(--spice-rgb-button), 0.16) !important;
-}
-
-.main-yourLibraryX-listItem img {
-  border-radius: 8px !important;
+  background-color: rgba(var(--spice-rgb-button), 0.14) !important;
+  outline: 1px solid var(--spice-button);
+  outline-offset: -1px;
 }
 
 /* ── Tiles (albums, playlists) ──────────────────────────────── */
-/* Like the reference: no card background, just the rounded cover. */
 
 .main-card-card {
   background-color: transparent !important;
-  border-radius: var(--roxy-radius) !important;
-  padding: 10px !important;
-  box-shadow: none !important;
-  transition: background-color 0.25s var(--roxy-ease), transform 0.25s var(--roxy-ease);
+  padding: 8px !important;
+  transition: outline-color 0.15s ease;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
 }
 
 .main-card-card:hover {
-  background-color: var(--spice-highlight) !important;
-  transform: translateY(-2px);
-}
-
-.main-cardImage-imageWrapper:not(.main-cardImage-circular),
-.main-cardImage-imageWrapper:not(.main-cardImage-circular) img {
-  border-radius: 12px !important;
-  box-shadow: 0 8px 24px rgba(var(--spice-rgb-shadow), 0.45) !important;
+  background-color: transparent !important;
+  outline-color: var(--spice-button);
 }
 
 .main-cardHeader-text {
-  font-weight: 700 !important;
+  font-weight: 500 !important;
 }
 
 .main-cardSubHeader {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.72rem !important;
-  color: var(--spice-subtext) !important;
+  text-transform: lowercase;
+  color: var(--spice-misc) !important;
 }
 
-/* Section titles ("Recently played" …) */
+/* Section titles read as "── recently played" */
 .main-view-container section h2 {
-  font-weight: 800 !important;
-  letter-spacing: -0.01em;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  text-transform: lowercase;
+}
+
+.main-view-container section h2::before {
+  content: "── ";
+  color: var(--spice-misc);
+}
+
+/* Filter chips (Playlists, Artists …) as bordered tags */
+.Root__main-view [role="checkbox"],
+.Root__nav-bar [role="checkbox"] {
+  background-color: transparent !important;
+  border: 1px solid var(--roxy-frame) !important;
+}
+
+.Root__main-view [role="checkbox"][aria-checked="true"],
+.Root__nav-bar [role="checkbox"][aria-checked="true"] {
+  border-color: var(--spice-button) !important;
+  color: var(--spice-button-active) !important;
 }
 
 /* ── Track lists (playlists, albums, queue) ─────────────────── */
 
 .main-trackList-trackListHeaderRow {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.72rem;
-  border-bottom-color: var(--spice-highlight) !important;
-}
-
-.main-trackList-trackListRow {
-  border-radius: var(--roxy-radius-sm) !important;
-  transition: background-color 0.15s var(--roxy-ease);
+  text-transform: lowercase;
+  color: var(--spice-misc) !important;
+  border-bottom: 1px solid var(--roxy-frame) !important;
 }
 
 .main-trackList-trackListRow:hover {
@@ -179,51 +224,67 @@ button,
   background-color: rgba(var(--spice-rgb-button), 0.14) !important;
 }
 
-.main-trackList-rowImage {
-  border-radius: 6px !important;
-}
-
 /* ── Player bar ─────────────────────────────────────────────── */
-
-.Root__now-playing-bar {
-  background-color: var(--spice-player) !important;
-}
 
 .Root__now-playing-bar footer,
 [data-testid="now-playing-bar"] {
   background-color: transparent !important;
 }
 
-[data-testid="now-playing-widget"] img {
-  border-radius: 8px !important;
-}
-
-/* Play/pause as a Roxy blue circle */
+/* Play/pause as "[ ⏸ ]" instead of a filled circle */
 .Root__now-playing-bar .encore-inverted-light-set {
-  --background-base: var(--spice-button);
-  --background-highlight: var(--spice-button-active);
-  --background-press: var(--spice-button);
-  --text-base: var(--spice-sidebar);
-  --essential-base: var(--spice-sidebar);
+  --background-base: transparent;
+  --background-highlight: var(--spice-highlight);
+  --background-press: var(--spice-main-elevated);
+  --text-base: var(--spice-text);
+  --essential-base: var(--spice-text);
 }
 
-/* Thin progress and volume bars */
+[data-testid="control-button-playpause"] {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  width: auto !important;
+  padding: 0 4px !important;
+  color: var(--spice-text) !important;
+}
+
+[data-testid="control-button-playpause"]::before { content: "["; color: var(--spice-misc); }
+[data-testid="control-button-playpause"]::after { content: "]"; color: var(--spice-misc); }
+
+[data-testid="control-button-playpause"]:hover {
+  color: var(--spice-button) !important;
+}
+
+/* Square, thin progress and volume bars */
 .progress-bar {
   --fg-color: var(--spice-button) !important;
-  --bg-color: rgba(var(--spice-rgb-text), 0.12) !important;
+  --bg-color: var(--spice-highlight) !important;
   --progress-bar-height: 3px;
-  --progress-bar-radius: 999px;
 }
 
 .progress-bar:hover {
   --fg-color: var(--spice-button-active) !important;
 }
 
+/* ── Menus and popups ───────────────────────────────────────── */
+
+[role="menu"],
+[role="dialog"],
+.main-contextMenu-menu {
+  background-color: var(--spice-main) !important;
+  border: 1px solid var(--roxy-frame) !important;
+}
+
+[role="menuitem"]:hover,
+[role="menuitemradio"]:hover {
+  background-color: var(--spice-highlight) !important;
+}
+
 /* ── Odds and ends ──────────────────────────────────────────── */
 
 .os-scrollbar-handle {
   background: var(--spice-highlight) !important;
-  border-radius: 999px !important;
 }
 
 .os-scrollbar-handle:hover {
