@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+# frame-spotify – Spotify Web API helper for the launcher (s mode).
+#
+# The Spicetify extension (Extensions/frameshell.js) is the main way the shell talks to
+# Spotify. This helper is the fallback when the extension cannot connect, and it also
+# reaches Spotify on other devices (phone, speaker). It needs your own Spotify developer
+# app, see docs/spotify.md.
+#
+#   frame-spotify login                  connect your developer app (once)
+#   frame-spotify logout                 forget the tokens
+#   frame-spotify status [--quiet]       logged in? exit code 0 = yes
+#   frame-spotify search <text>          JSON list: [{kind, uri, title, subtitle, image, length}]
+#   frame-spotify play <uri>             play a track, album, artist or playlist
+#   frame-spotify queue <uri>            add a track to the queue
+#   frame-spotify control <action> [s]   play pause toggle next prev forward back jump shuffle repeat like
+#
+# Needs curl, jq and openssl. Not tested against a real account yet.
+set -euo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/frameshell"
+STATE="$STATE_DIR/spotify.json"
+REDIRECT_URI="http://127.0.0.1:8888/callback"
+SCOPES="user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private user-library-read user-library-modify"
+API="https://api.spotify.com/v1"
+LIMIT=5
+
+die() { printf 'frame-spotify: %s\n' "$*" >&2; exit 1; }
+
+need() {
+  for tool in "$@"; do
+    command -v "$tool" >/dev/null || die "$tool is missing (sudo pacman -S $tool)"
+  done
+}
+
+# ── Tokens ───────────────────────────────────────────────
+
+b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+
+urlencode() { jq -rn --arg v "$1" '$v | @uri'; }
+
+save_state() {
+  mkdir -p "$STATE_DIR"
+  local tmp
+  tmp=$(mktemp "$STATE_DIR/.spotify.XXXXXX")
+  chmod 600 "$tmp"
+  printf '%s\n' "$1" >"$tmp"
+  mv "$tmp" "$STATE"
+}
+
+state() { jq -r --arg k "$1" '.[$k] // empty' "$STATE" 2>/dev/null; }
+
+# Writes the token response into the state file; Spotify only sometimes sends a new refresh token
+store_tokens() {
+  local response="$1" client_id="$2" old_refresh="${3:-}"
+  local access
+  access=$(jq -r '.access_token // empty' <<<"$response" 2>/dev/null || true)
+  [[ -n "$access" ]] || die "Spotify said: $(jq -r '.error_description // .error // "no token"' <<<"$response" 2>/dev/null || echo "$response")"
+  save_state "$(jq -n --argjson r "$response" --arg id "$client_id" --arg redirect "$REDIRECT_URI" \
+    --arg old "$old_refresh" --argjson now "$(date +%s)" \
+    '{client_id: $id, redirect_uri: $redirect, access_token: $r.access_token,
+      refresh_token: ($r.refresh_token // $old), expires_at: ($now + ($r.expires_in // 3600))}')"
+}
+
+token() {
+  [[ -f "$STATE" ]] || die "not logged in, run: frame spotify login"
+  local expires now
+  expires=$(state expires_at)
+  now=$(date +%s)
+  if (( ${expires:-0} - 60 > now )); then
+    state access_token
+    return
+  fi
+  local client_id refresh response
+  client_id=$(state client_id)
+  refresh=$(state refresh_token)
+  [[ -n "$refresh" ]] || die "no refresh token, run: frame spotify login"
+  response=$(curl -sS -X POST https://accounts.spotify.com/api/token \
+    --data-urlencode grant_type=refresh_token \
+    --data-urlencode "refresh_token=$refresh" \
+    --data-urlencode "client_id=$client_id")
+  store_tokens "$response" "$client_id" "$refresh"
+  state access_token
+}
+
+cmd_login() {
+  need curl jq openssl
+  local client_id="${1:-}"
+  if [[ -z "$client_id" ]]; then
+    client_id=$(state client_id)
+    printf 'Client ID of your Spotify app%s: ' "${client_id:+ [$client_id]}"
+    local typed
+    read -r typed
+    client_id="${typed:-$client_id}"
+  fi
+  [[ "$client_id" =~ ^[0-9a-zA-Z]{20,}$ ]] || die "that does not look like a client id (developer.spotify.com/dashboard)"
+
+  local verifier challenge nonce url
+  verifier=$(openssl rand 64 | b64url)
+  challenge=$(printf '%s' "$verifier" | openssl dgst -sha256 -binary | b64url)
+  nonce=$(openssl rand -hex 12)
+  url="https://accounts.spotify.com/authorize?response_type=code&client_id=$client_id"
+  url+="&scope=$(urlencode "$SCOPES")&redirect_uri=$(urlencode "$REDIRECT_URI")"
+  url+="&code_challenge_method=S256&code_challenge=$challenge&state=$nonce"
+
+  cat <<EOF
+
+1. Open this link and allow access (it opens by itself if it can):
+
+   $url
+
+2. Spotify sends you to $REDIRECT_URI… and the page will not load.
+   That is expected. Copy the whole address from the address bar and paste it here.
+
+EOF
+  if command -v xdg-open >/dev/null; then
+    xdg-open "$url" >/dev/null 2>&1 &
+  fi
+  printf 'Address: '
+  local pasted code returned error
+  read -r pasted
+  code=$(sed -n 's/.*[?&]code=\([^&]*\).*/\1/p' <<<"$pasted")
+  returned=$(sed -n 's/.*[?&]state=\([^&]*\).*/\1/p' <<<"$pasted")
+  error=$(sed -n 's/.*[?&]error=\([^&]*\).*/\1/p' <<<"$pasted")
+  [[ -z "$error" ]] || die "Spotify said: $error"
+  [[ -n "$code" ]] || die "no code in that address"
+  [[ "$returned" == "$nonce" ]] || die "that address belongs to another login attempt, run login again"
+
+  local response
+  response=$(curl -sS -X POST https://accounts.spotify.com/api/token \
+    --data-urlencode grant_type=authorization_code \
+    --data-urlencode "code=$code" \
+    --data-urlencode "redirect_uri=$REDIRECT_URI" \
+    --data-urlencode "client_id=$client_id" \
+    --data-urlencode "code_verifier=$verifier")
+  store_tokens "$response" "$client_id"
+  printf '\nLogged in. Tokens are in %s (only you can read it).\n' "$STATE"
+}
+
+cmd_logout() {
+  rm -f "$STATE"
+  echo "Logged out. To revoke access completely: spotify.com/account/apps"
+}
+
+cmd_status() {
+  if [[ "${1:-}" == "--quiet" ]]; then
+    [[ -f "$STATE" && -n "$(state refresh_token)" ]]
+    return
+  fi
+  [[ -f "$STATE" ]] || { echo "not logged in (frame spotify login)"; return 1; }
+  need curl jq
+  local me
+  me=$(api GET /me)
+  printf 'logged in as %s (%s)\n' "$(jq -r '.display_name // .id' <<<"$me")" "$(jq -r '.product // "?"' <<<"$me")"
+}
+
+# ── API calls ────────────────────────────────────────────
+
+# api METHOD PATH [JSON body] – prints the response body; errors go to stderr
+api() {
+  local method="$1" path="$2" body="${3:-}" token out code
+  token=$(token)
+  local args=(-sS -X "$method" -H "Authorization: Bearer $token" -w $'\n%{http_code}')
+  if [[ -n "$body" ]]; then
+    args+=(-H "Content-Type: application/json" --data "$body")
+  elif [[ "$method" != GET ]]; then
+    # Spotify wants a length on empty PUT/POST requests
+    args+=(-H "Content-Length: 0")
+  fi
+  out=$(curl "${args[@]}" "$API$path")
+  code="${out##*$'\n'}"
+  out="${out%$'\n'*}"
+  [[ "$out" == "$code" ]] && out=""
+  case "$code" in
+    2??) printf '%s' "$out" ;;
+    401) die "token rejected, run: frame spotify login" ;;
+    403) die "not allowed: $(jq -r '.error.message // empty' <<<"$out" 2>/dev/null) (playback control needs Premium)" ;;
+    404) die "$(jq -r '.error.message // "not found"' <<<"$out" 2>/dev/null || echo "not found")" ;;
+    429) die "too many requests, try again in a moment" ;;
+    *) die "spotify answered $code: $(jq -r '.error.message // empty' <<<"$out" 2>/dev/null || true)" ;;
+  esac
+}
+
+# Player state as JSON; Spotify answers 204 with nothing when no device is active
+now_playing() {
+  local now
+  now=$(api GET /me/player)
+  [[ -n "$now" ]] || now='{}'
+  printf '%s' "$now"
+}
+
+# Playback calls fail with 404 when no device is active; then wake the first one up
+player() {
+  local method="$1" path="$2" body="${3:-}"
+  if api "$method" "$path" "$body" 2>/dev/null; then
+    return
+  fi
+  local device sep
+  device=$(api GET /me/player/devices | jq -r '((.devices | map(select(.is_active))) + .devices)[0].id // empty')
+  [[ -n "$device" ]] || die "no Spotify device found, open Spotify first"
+  [[ "$path" == *\?* ]] && sep="&" || sep="?"
+  api "$method" "$path${sep}device_id=$device" "$body"
+}
+
+cmd_search() {
+  need curl jq
+  local query="$*"
+  [[ -n "$query" ]] || die "search for what?"
+  api GET "/search?q=$(urlencode "$query")&type=track,artist,album,playlist&limit=$LIMIT" | jq -c '
+    def image: (map(select(.width == null or .width >= 64)) | sort_by(.width // 0) | .[0].url) // "";
+    def names: map(.name) | join(", ");
+    [ (.tracks.items // [] | .[] | select(. != null)
+        | {kind: "track", uri, title: .name, subtitle: "\(.artists | names) · \(.album.name)",
+           image: ((.album.images // []) | image), length: ((.duration_ms // 0) / 1000 | floor)}),
+      (.artists.items // [] | .[] | select(. != null)
+        | {kind: "artist", uri, title: .name, subtitle: "artist", image: ((.images // []) | image), length: 0}),
+      (.albums.items // [] | .[] | select(. != null)
+        | {kind: "album", uri, title: .name, subtitle: "album · \(.artists | names)", image: ((.images // []) | image), length: 0}),
+      (.playlists.items // [] | .[] | select(. != null)
+        | {kind: "playlist", uri, title: .name, subtitle: "playlist · \(.owner.display_name // "")", image: ((.images // []) | image), length: 0})
+    ]'
+}
+
+cmd_play() {
+  need curl jq
+  local uri="${1:-}"
+  [[ "$uri" == spotify:* ]] || die "play needs a spotify: uri"
+  if [[ "$uri" == spotify:track:* ]]; then
+    player PUT /me/player/play "$(jq -cn --arg u "$uri" '{uris: [$u]}')" >/dev/null
+  else
+    player PUT /me/player/play "$(jq -cn --arg u "$uri" '{context_uri: $u}')" >/dev/null
+  fi
+  echo playing
+}
+
+cmd_queue() {
+  need curl jq
+  local uri="${1:-}"
+  [[ "$uri" == spotify:* ]] || die "queue needs a spotify: uri"
+  player POST "/me/player/queue?uri=$(urlencode "$uri")" >/dev/null
+  echo queued
+}
+
+cmd_control() {
+  need curl jq
+  local action="${1:-}" seconds="${2:-0}" now
+  [[ "$seconds" =~ ^[0-9]+$ ]] || die "seconds must be a whole number"
+  case "$action" in
+    play) player PUT /me/player/play >/dev/null ;;
+    pause) player PUT /me/player/pause >/dev/null ;;
+    toggle)
+      if [[ "$(now_playing | jq -r '.is_playing // false')" == true ]]; then
+        player PUT /me/player/pause >/dev/null
+      else
+        player PUT /me/player/play >/dev/null
+      fi ;;
+    next) player POST /me/player/next >/dev/null ;;
+    prev) player POST /me/player/previous >/dev/null ;;
+    forward | back | jump)
+      now=$(now_playing)
+      [[ "$now" != '{}' ]] || die "nothing is playing"
+      local position length target
+      position=$(jq -r '.progress_ms // 0' <<<"$now")
+      length=$(jq -r '.item.duration_ms // 0' <<<"$now")
+      case "$action" in
+        forward) target=$((position + seconds * 1000)) ;;
+        back) target=$((position - seconds * 1000)) ;;
+        *) target=$((seconds * 1000)) ;;
+      esac
+      (( target < 0 )) && target=0
+      (( length > 0 && target > length )) && target=$length
+      player PUT "/me/player/seek?position_ms=$target" >/dev/null ;;
+    shuffle)
+      player PUT "/me/player/shuffle?state=$(now_playing | jq -r 'if .shuffle_state then "false" else "true" end')" >/dev/null ;;
+    repeat)
+      # off → whole list → this track → off, like the button in Spotify
+      player PUT "/me/player/repeat?state=$(now_playing | jq -r '{"off": "context", "context": "track", "track": "off"}[.repeat_state // "off"]')" >/dev/null ;;
+    like)
+      local id
+      id=$(api GET /me/player/currently-playing | jq -r '.item.id // empty' 2>/dev/null || true)
+      [[ -n "$id" ]] || die "nothing is playing"
+      if [[ "$(api GET "/me/tracks/contains?ids=$id" | jq -r '.[0]')" == true ]]; then
+        api DELETE "/me/tracks?ids=$id" >/dev/null
+        echo "removed from liked songs"
+      else
+        api PUT "/me/tracks?ids=$id" >/dev/null
+        echo "added to liked songs"
+      fi
+      return ;;
+    *) die "unknown action: $action" ;;
+  esac
+  echo "$action"
+}
+
+usage() {
+  sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+main() {
+  local command="${1:-help}"
+  shift || true
+  case "$command" in
+    login) cmd_login "$@" ;;
+    logout) cmd_logout ;;
+    status) cmd_status "$@" ;;
+    search) cmd_search "$@" ;;
+    play) cmd_play "$@" ;;
+    queue) cmd_queue "$@" ;;
+    control) cmd_control "$@" ;;
+    help | -h | --help) usage ;;
+    *) usage; exit 1 ;;
+  esac
+}
+
+main "$@"
