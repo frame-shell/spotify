@@ -1,15 +1,15 @@
 /*
- * Roxy – Spicetify-Theme
- * Farben kommen aus color.ini (--spice-*), Layout angelehnt an einen
- * Desktop-Musikplayer: Kacheln ohne Rahmen, Icon-Leiste links,
- * Queue als Tabelle rechts, schwebende Player-Leiste unten.
+ * Roxy – Spicetify theme
+ * Colors come from color.ini (--spice-*). Layout follows a desktop music
+ * player: borderless tiles, icon rail on the left, queue as a table on
+ * the right, floating player bar at the bottom.
  *
- * Selektoren: Spotify ändert seine Klassen regelmäßig. Wenn nach einem
- * Update etwas nicht mehr greift: `spicetify enable-devtools`, dann
- * Strg+Umschalt+I in Spotify und die Klasse hier anpassen.
+ * Selectors: Spotify renames its classes regularly. If something stops
+ * working after an update, run `spicetify enable-devtools`, press
+ * Ctrl+Shift+I in Spotify and adjust the class here.
  */
 
-/* ── Grundwerte ─────────────────────────────────────────────── */
+/* ── Base values ────────────────────────────────────────────── */
 
 :root {
   --roxy-font: "Lexend", "Outfit", "Inter", system-ui, sans-serif;
@@ -29,8 +29,8 @@ button,
   font-family: var(--roxy-font) !important;
 }
 
-/* Spotifys eigene Farbvariablen (encore) auf die Roxy-Palette legen,
-   damit auch Stellen ohne --spice-* stimmen (Grün → Blau usw.). */
+/* Map Spotify's own color variables (encore) to the Roxy palette so
+   places without --spice-* match too (green → blue etc.). */
 :root,
 .encore-dark-theme,
 .encore-dark-theme .encore-base-set {
@@ -56,7 +56,7 @@ button,
   --decorative-subdued: var(--spice-highlight);
 }
 
-/* Grüne Akzent-Knöpfe (Play auf Alben, Folgen …) */
+/* Green accent buttons (play on albums, follow …) */
 .encore-bright-accent-set,
 .encore-dark-theme .encore-bright-accent-set {
   --background-base: var(--spice-button);
@@ -66,7 +66,7 @@ button,
   --essential-base: var(--spice-sidebar);
 }
 
-/* ── Rahmen und Panels ──────────────────────────────────────── */
+/* ── Frame and panels ───────────────────────────────────────── */
 
 .Root__top-container {
   --panel-gap: 10px;
@@ -87,7 +87,7 @@ button,
   background-color: var(--spice-main) !important;
 }
 
-/* Obere Leiste (Home, Suche) ohne eigenen Hintergrund */
+/* Top bar (home, search) without its own background */
 .Root__globalNav {
   background-color: transparent !important;
 }
@@ -97,8 +97,8 @@ button,
   background-color: var(--spice-main) !important;
 }
 
-/* ── Linke Leiste (Bibliothek) ──────────────────────────────── */
-/* Am besten mit „Bibliothek einklappen" als schmale Icon-Leiste nutzen. */
+/* ── Left rail (library) ────────────────────────────────────── */
+/* Works best collapsed ("Collapse Your Library") as a narrow icon rail. */
 
 .main-yourLibraryX-listItem,
 .main-yourLibraryX-listItem > div {
@@ -117,8 +117,8 @@ button,
   border-radius: 8px !important;
 }
 
-/* ── Kacheln (Alben, Playlists) ─────────────────────────────── */
-/* Wie im Vorbild: kein Kartenhintergrund, nur das Cover mit Rundung. */
+/* ── Tiles (albums, playlists) ──────────────────────────────── */
+/* Like the reference: no card background, just the rounded cover. */
 
 .main-card-card {
   background-color: transparent !important;
@@ -150,13 +150,13 @@ button,
   color: var(--spice-subtext) !important;
 }
 
-/* Abschnittstitel („Zuletzt gehört" …) */
+/* Section titles ("Recently played" …) */
 .main-view-container section h2 {
   font-weight: 800 !important;
   letter-spacing: -0.01em;
 }
 
-/* ── Titellisten (Playlists, Alben, Queue) ──────────────────── */
+/* ── Track lists (playlists, albums, queue) ─────────────────── */
 
 .main-trackList-trackListHeaderRow {
   text-transform: uppercase;
@@ -183,7 +183,7 @@ button,
   border-radius: 6px !important;
 }
 
-/* ── Player-Leiste ──────────────────────────────────────────── */
+/* ── Player bar ─────────────────────────────────────────────── */
 
 .Root__now-playing-bar {
   background-color: var(--spice-player) !important;
@@ -198,7 +198,7 @@ button,
   border-radius: 8px !important;
 }
 
-/* Play/Pause als Roxy-blauer Kreis */
+/* Play/pause as a Roxy blue circle */
 .Root__now-playing-bar .encore-inverted-light-set {
   --background-base: var(--spice-button);
   --background-highlight: var(--spice-button-active);
@@ -207,7 +207,7 @@ button,
   --essential-base: var(--spice-sidebar);
 }
 
-/* Dünne Fortschritts- und Lautstärkebalken */
+/* Thin progress and volume bars */
 .progress-bar {
   --fg-color: var(--spice-button) !important;
   --bg-color: rgba(var(--spice-rgb-text), 0.12) !important;
@@ -219,7 +219,7 @@ button,
   --fg-color: var(--spice-button-active) !important;
 }
 
-/* ── Kleinkram ──────────────────────────────────────────────── */
+/* ── Odds and ends ──────────────────────────────────────────── */
 
 .os-scrollbar-handle {
   background: var(--spice-highlight) !important;
