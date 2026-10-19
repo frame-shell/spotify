@@ -1,0 +1,235 @@
+/*
+ * Roxy – Spicetify-Theme
+ * Farben kommen aus color.ini (--spice-*), Layout angelehnt an einen
+ * Desktop-Musikplayer: Kacheln ohne Rahmen, Icon-Leiste links,
+ * Queue als Tabelle rechts, schwebende Player-Leiste unten.
+ *
+ * Selektoren: Spotify ändert seine Klassen regelmäßig. Wenn nach einem
+ * Update etwas nicht mehr greift: `spicetify enable-devtools`, dann
+ * Strg+Umschalt+I in Spotify und die Klasse hier anpassen.
+ */
+
+/* ── Grundwerte ─────────────────────────────────────────────── */
+
+:root {
+  --roxy-font: "Lexend", "Outfit", "Inter", system-ui, sans-serif;
+  --roxy-radius: 16px;
+  --roxy-radius-sm: 10px;
+  --roxy-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --encore-body-font-stack: var(--roxy-font);
+  --encore-title-font-stack: var(--roxy-font);
+  --encore-variable-font-stack: var(--roxy-font);
+}
+
+body,
+input,
+button,
+.encore-text {
+  font-family: var(--roxy-font) !important;
+}
+
+/* Spotifys eigene Farbvariablen (encore) auf die Roxy-Palette legen,
+   damit auch Stellen ohne --spice-* stimmen (Grün → Blau usw.). */
+:root,
+.encore-dark-theme,
+.encore-dark-theme .encore-base-set {
+  --background-base: var(--spice-main);
+  --background-highlight: var(--spice-highlight);
+  --background-press: var(--spice-main-elevated);
+  --background-elevated-base: var(--spice-main-elevated);
+  --background-elevated-highlight: var(--spice-highlight-elevated);
+  --background-elevated-press: var(--spice-main-elevated);
+  --background-tinted-base: rgba(var(--spice-rgb-text), 0.07);
+  --background-tinted-highlight: rgba(var(--spice-rgb-text), 0.11);
+  --background-tinted-press: rgba(var(--spice-rgb-text), 0.04);
+  --text-base: var(--spice-text);
+  --text-subdued: var(--spice-subtext);
+  --text-bright-accent: var(--spice-button);
+  --text-negative: var(--spice-notification-error);
+  --text-announcement: var(--spice-button-active);
+  --essential-base: var(--spice-text);
+  --essential-subdued: var(--spice-misc);
+  --essential-bright-accent: var(--spice-button);
+  --essential-negative: var(--spice-notification-error);
+  --decorative-base: var(--spice-text);
+  --decorative-subdued: var(--spice-highlight);
+}
+
+/* Grüne Akzent-Knöpfe (Play auf Alben, Folgen …) */
+.encore-bright-accent-set,
+.encore-dark-theme .encore-bright-accent-set {
+  --background-base: var(--spice-button);
+  --background-highlight: var(--spice-button-active);
+  --background-press: var(--spice-button);
+  --text-base: var(--spice-sidebar);
+  --essential-base: var(--spice-sidebar);
+}
+
+/* ── Rahmen und Panels ──────────────────────────────────────── */
+
+.Root__top-container {
+  --panel-gap: 10px;
+  background-color: var(--spice-sidebar) !important;
+}
+
+.Root__nav-bar,
+.Root__main-view,
+.Root__right-sidebar,
+.Root__now-playing-bar {
+  border-radius: var(--roxy-radius) !important;
+  overflow: hidden;
+}
+
+.Root__main-view,
+.Root__nav-bar,
+.Root__right-sidebar {
+  background-color: var(--spice-main) !important;
+}
+
+/* Obere Leiste (Home, Suche) ohne eigenen Hintergrund */
+.Root__globalNav {
+  background-color: transparent !important;
+}
+
+.Root__globalNav input {
+  border-radius: 999px !important;
+  background-color: var(--spice-main) !important;
+}
+
+/* ── Linke Leiste (Bibliothek) ──────────────────────────────── */
+/* Am besten mit „Bibliothek einklappen" als schmale Icon-Leiste nutzen. */
+
+.main-yourLibraryX-listItem,
+.main-yourLibraryX-listItem > div {
+  border-radius: var(--roxy-radius-sm) !important;
+}
+
+.main-yourLibraryX-listItem:hover > div {
+  background-color: var(--spice-highlight) !important;
+}
+
+.main-yourLibraryX-listItem[aria-selected="true"] > div {
+  background-color: rgba(var(--spice-rgb-button), 0.16) !important;
+}
+
+.main-yourLibraryX-listItem img {
+  border-radius: 8px !important;
+}
+
+/* ── Kacheln (Alben, Playlists) ─────────────────────────────── */
+/* Wie im Vorbild: kein Kartenhintergrund, nur das Cover mit Rundung. */
+
+.main-card-card {
+  background-color: transparent !important;
+  border-radius: var(--roxy-radius) !important;
+  padding: 10px !important;
+  box-shadow: none !important;
+  transition: background-color 0.25s var(--roxy-ease), transform 0.25s var(--roxy-ease);
+}
+
+.main-card-card:hover {
+  background-color: var(--spice-highlight) !important;
+  transform: translateY(-2px);
+}
+
+.main-cardImage-imageWrapper:not(.main-cardImage-circular),
+.main-cardImage-imageWrapper:not(.main-cardImage-circular) img {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(var(--spice-rgb-shadow), 0.45) !important;
+}
+
+.main-cardHeader-text {
+  font-weight: 700 !important;
+}
+
+.main-cardSubHeader {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem !important;
+  color: var(--spice-subtext) !important;
+}
+
+/* Abschnittstitel („Zuletzt gehört" …) */
+.main-view-container section h2 {
+  font-weight: 800 !important;
+  letter-spacing: -0.01em;
+}
+
+/* ── Titellisten (Playlists, Alben, Queue) ──────────────────── */
+
+.main-trackList-trackListHeaderRow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  border-bottom-color: var(--spice-highlight) !important;
+}
+
+.main-trackList-trackListRow {
+  border-radius: var(--roxy-radius-sm) !important;
+  transition: background-color 0.15s var(--roxy-ease);
+}
+
+.main-trackList-trackListRow:hover {
+  background-color: var(--spice-highlight) !important;
+}
+
+.main-trackList-trackListRow[aria-selected="true"],
+.main-trackList-trackListRow.main-trackList-active {
+  background-color: rgba(var(--spice-rgb-button), 0.14) !important;
+}
+
+.main-trackList-rowImage {
+  border-radius: 6px !important;
+}
+
+/* ── Player-Leiste ──────────────────────────────────────────── */
+
+.Root__now-playing-bar {
+  background-color: var(--spice-player) !important;
+}
+
+.Root__now-playing-bar footer,
+[data-testid="now-playing-bar"] {
+  background-color: transparent !important;
+}
+
+[data-testid="now-playing-widget"] img {
+  border-radius: 8px !important;
+}
+
+/* Play/Pause als Roxy-blauer Kreis */
+.Root__now-playing-bar .encore-inverted-light-set {
+  --background-base: var(--spice-button);
+  --background-highlight: var(--spice-button-active);
+  --background-press: var(--spice-button);
+  --text-base: var(--spice-sidebar);
+  --essential-base: var(--spice-sidebar);
+}
+
+/* Dünne Fortschritts- und Lautstärkebalken */
+.progress-bar {
+  --fg-color: var(--spice-button) !important;
+  --bg-color: rgba(var(--spice-rgb-text), 0.12) !important;
+  --progress-bar-height: 3px;
+  --progress-bar-radius: 999px;
+}
+
+.progress-bar:hover {
+  --fg-color: var(--spice-button-active) !important;
+}
+
+/* ── Kleinkram ──────────────────────────────────────────────── */
+
+.os-scrollbar-handle {
+  background: var(--spice-highlight) !important;
+  border-radius: 999px !important;
+}
+
+.os-scrollbar-handle:hover {
+  background: var(--spice-highlight-elevated) !important;
+}
+
+::selection {
+  background-color: rgba(var(--spice-rgb-button), 0.35);
+}
