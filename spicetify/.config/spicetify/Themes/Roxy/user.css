@@ -37,7 +37,7 @@ button,
   box-shadow: none !important;
 }
 
-/* Map Spotify's own color variables (encore) to the Roxy palette so
+/* Map Spotify's own color variables (encore) to the Periwinkle palette so
    places without --spice-* match too (green → blue etc.). */
 :root,
 .encore-dark-theme,
