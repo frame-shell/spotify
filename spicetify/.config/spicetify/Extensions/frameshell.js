@@ -148,6 +148,13 @@
         return "{" + keys.slice(0, 8).map(k => `${k}:${shape(data[k], depth + 1)}`).join(",") + "}";
     }
 
+    // The top results repeat what the track/album lists have, and your own playlists can
+    // come back from the search too: each uri once, the first one wins
+    function unique(items) {
+        const seen = new Set();
+        return items.filter(i => !seen.has(i.uri) && seen.add(i.uri));
+    }
+
     async function search(query) {
         const own = await libraryPlaylists(query);
         const defs = Spicetify.GraphQL.Definitions ?? {};
@@ -165,7 +172,7 @@
             try {
                 const data = await Spicetify.GraphQL.Request(defs[name], variables);
                 const found = fromGraphQL(data);
-                if (found.length) return { source: name, items: own.concat(found) };
+                if (found.length) return { source: name, items: unique(own.concat(found)) };
                 const first = data?.data?.searchV2?.topResultsV2?.itemsV2?.[0];
                 debug.tried[name] = shape(data) + (first ? " first=" + JSON.stringify(first).slice(0, 400) : "");
             } catch (e) {
@@ -177,7 +184,7 @@
             `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track,artist,album,playlist&limit=${LIMIT}`);
         // CosmosAsync returns errors (429, 403) as objects instead of throwing
         if (web?.error) throw new Error(web.error.message ?? `web api ${web.error.status}`);
-        const items = own.concat(fromWebApi(web));
+        const items = unique(own.concat(fromWebApi(web)));
         if (items.length === 0) debug.tried.web = shape(web);
         return { source: "web api", items, debug: items.length === 0 ? debug : undefined };
     }
