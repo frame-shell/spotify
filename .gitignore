@@ -1,0 +1,4 @@
+# Written by `frame theme` from templates/ for the active theme; edit the template
+# instead. Kept out of git so switching themes is never a change in the repo.
+/spicetify/.config/spicetify/Themes/Frameshell/color.ini
+/spicetify/.config/spicetify/Extensions/frameshell-token.js
